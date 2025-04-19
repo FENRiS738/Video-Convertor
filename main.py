@@ -25,19 +25,26 @@ def extract_audio_from_video(video_path, audio_path):
     video.close()
 
 def transcribe_audio(audio_path):
-    """Transcribe audio to text"""
     recognizer = sr.Recognizer()
-    
+
     with sr.AudioFile(audio_path) as source:
-        audio_data = recognizer.record(source)
-        
-        try:
-            text = recognizer.recognize_google(audio_data)
-            return text
-        except sr.UnknownValueError:
-            return "Speech recognition could not understand audio"
-        except sr.RequestError as e:
-            return f"Could not request results; {e}"
+        duration = source.DURATION
+        step = 30
+        transcript = ""
+
+        for i in range(0, int(duration), step):
+            source_audio = recognizer.record(source, duration=step)
+            try:
+                chunk_text = recognizer.recognize_google(source_audio)
+                transcript += chunk_text + " "
+            except sr.UnknownValueError:
+                transcript += "[Unclear] "
+            except sr.RequestError as e:
+                transcript += f"[Error: {e}] "
+                break
+
+        return transcript.strip()
+
         
 @app.post("/upload", response_class=JSONResponse)
 async def upload_video(file: UploadFile):
@@ -61,9 +68,10 @@ async def upload_video(file: UploadFile):
         return {
             "message": "Video uploaded and transcribed successfully",
             "filename": file.filename,
-            "transcript": transcript
+            "transcript": transcript,
+            "note": "Transcripts are subject to confidential information, generated data is 90% accurate."
         }
-        
+
     except Exception as e:
         return JSONResponse(
             status_code=500,

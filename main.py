@@ -13,7 +13,7 @@ UPLOAD_DIR = "uploads"
 CHUNK_SIZE = 1024 * 1024
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 model = whisper.load_model("base", "cpu")
-aai.settings.api_key = "3e155911158f4e2c836d5b13738622e1"
+aai.settings.api_key = AAI_API_KEY
 
 class AudioFile(BaseModel):
     filename: str

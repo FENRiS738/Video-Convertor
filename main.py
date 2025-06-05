@@ -5,6 +5,7 @@ import os
 import whisper
 from fastapi import UploadFile
 from moviepy import VideoFileClip
+import assemblyai as aai
 
 app = FastAPI()
 
@@ -12,6 +13,7 @@ UPLOAD_DIR = "uploads"
 CHUNK_SIZE = 1024 * 1024
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 model = whisper.load_model("base", "cpu")
+aai.settings.api_key = "3e155911158f4e2c836d5b13738622e1"
 
 class AudioFile(BaseModel):
     filename: str
@@ -19,7 +21,6 @@ class AudioFile(BaseModel):
 @app.get("/", response_class=JSONResponse)
 async def root(request: Request):
     return {"message": "Server is running at " + str(request.url)}
-
 
 def extract_audio_from_video(video_path, audio_path):
     """Extract audio from video file"""
@@ -57,22 +58,45 @@ async def convert_video_to_audio(file: UploadFile):
             content={"message": f"Failed to process video: {str(e)}"}
         )
 
-def transcribe_audio(audio_path):
-    transcription = model.transcribe(audio_path)
-    return transcription["text"].strip()
-
-@app.post("/audio-to-text", response_class=JSONResponse)
+@app.post("/audio-to-text/whisper", response_class=JSONResponse)
 async def convert_audio_to_text(audio_file: AudioFile):
     try:
 
         audio_path = os.path.join(UPLOAD_DIR, audio_file.filename)
-        transcript = transcribe_audio(audio_path)
+        transcript = model.transcribe(audio_path)
+
         os.remove(audio_path)
 
         return {
             "message": "Video transcribed successfully",
             "filename": audio_file.filename,
-            "transcript": transcript,
+            "transcript": transcript["text"].strip(),
+            "note": "Transcripts are subject to confidential information, generated data is 90% accurate."
+        }
+
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"message": f"Failed to process video: {str(e)}"}
+        )
+
+
+@app.post("/audio-to-text/assemblyai", response_class=JSONResponse)
+async def convert_audio_to_text(audio_file: AudioFile):
+    try:
+        audio_path = os.path.join(UPLOAD_DIR, audio_file.filename)
+
+        config = aai.TranscriptionConfig(speech_model=aai.SpeechModel.best)
+        transcript = aai.Transcriber(config=config).transcribe(audio_path)
+        if transcript.status == "error":
+            raise RuntimeError(f"Transcription failed: {transcript.error}")
+
+        os.remove(audio_path)
+
+        return {
+            "message": "Video transcribed successfully",
+            "filename": audio_file.filename,
+            "transcript": transcript.text,
             "note": "Transcripts are subject to confidential information, generated data is 90% accurate."
         }
 

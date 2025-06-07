@@ -3,11 +3,21 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import os
 import whisper
+import asyncio
 from fastapi import UploadFile
 from moviepy import VideoFileClip
 import assemblyai as aai
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 UPLOAD_DIR = "uploads"
 CHUNK_SIZE = 1024 * 1024
@@ -47,7 +57,7 @@ async def convert_video_to_audio(file: UploadFile):
         os.remove(video_path)
         
         return {
-            "message": "Video converted to audio successfully",
+            "message": "✅ Video converted to audio successfully",
             "filename": f"{os.path.splitext(file.filename)[0]}.wav",
             "filepath": audio_path
         }
@@ -55,7 +65,7 @@ async def convert_video_to_audio(file: UploadFile):
     except Exception as e:
         return JSONResponse(
             status_code=500,
-            content={"message": f"Failed to process video: {str(e)}"}
+            content={"error": f"❌ Failed to process video: {str(e)}"}
         )
 
 @app.post("/audio-to-text/whisper", response_class=JSONResponse)
@@ -68,7 +78,7 @@ async def convert_audio_to_text(audio_file: AudioFile):
         os.remove(audio_path)
 
         return {
-            "message": "Video transcribed successfully",
+            "message": "✅ Video transcribed successfully",
             "filename": audio_file.filename,
             "transcript": transcript["text"].strip(),
             "note": "Transcripts are subject to confidential information, generated data is 90% accurate."
@@ -77,7 +87,7 @@ async def convert_audio_to_text(audio_file: AudioFile):
     except Exception as e:
         return JSONResponse(
             status_code=500,
-            content={"message": f"Failed to process video: {str(e)}"}
+            content={"error": f"❌ Failed to process video: {str(e)}"}
         )
 
 
@@ -89,12 +99,12 @@ async def convert_audio_to_text(audio_file: AudioFile):
         config = aai.TranscriptionConfig(speech_model=aai.SpeechModel.best)
         transcript = aai.Transcriber(config=config).transcribe(audio_path)
         if transcript.status == "error":
-            raise RuntimeError(f"Transcription failed: {transcript.error}")
+            raise RuntimeError(f"❌ Transcription failed: {transcript.error}")
 
         os.remove(audio_path)
 
         return {
-            "message": "Video transcribed successfully",
+            "message": "✅ Video transcribed successfully",
             "filename": audio_file.filename,
             "transcript": transcript.text,
             "note": "Transcripts are subject to confidential information, generated data is 90% accurate."
@@ -103,6 +113,6 @@ async def convert_audio_to_text(audio_file: AudioFile):
     except Exception as e:
         return JSONResponse(
             status_code=500,
-            content={"message": f"Failed to process video: {str(e)}"}
+            content={"error": f"❌ Failed to process video: {str(e)}"}
         )
     
